@@ -1,0 +1,9 @@
+[
+  "created_at_sort",
+  "platform",
+  "pre_releases",
+  "semver_constraint",
+  "tag",
+  "tag_regex",
+  "variant"
+]

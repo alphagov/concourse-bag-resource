@@ -1,0 +1,23 @@
+#!/bin/bash
+
+exec 3>&1 # make stdout available as fd 3 for the result
+exec 1>&2 # redirect all output to stderr for logging
+
+set -e -o pipefail
+
+source $(dirname $0)/common.sh
+
+PAYLOAD="$(cat <&0)"
+
+validate_payload_source "$PAYLOAD"
+
+if jq -e '.source.proxy // false' <<< "$PAYLOAD" > /dev/null ; then
+  SUBRESOURCE_TYPE="$(jq -r '.source.proxy.type' <<< "$PAYLOAD")"
+  validate_subresource_type "$SUBRESOURCE_TYPE"
+  FORWARDED_PAYLOAD="$(jq '.source |= .proxy.source' <<< "$PAYLOAD")"
+else
+  SUBRESOURCE_TYPE='git'
+  FORWARDED_PAYLOAD="$(jq '.source |= .bag_repo' <<< "$PAYLOAD")"
+fi
+
+$PROOT_CMD $(get_type_specific_proot_args "$SUBRESOURCE_TYPE") $SLEEP_AFTER /opt/resource/check >&3 <<< "$FORWARDED_PAYLOAD"

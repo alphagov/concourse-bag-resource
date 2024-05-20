@@ -1,0 +1,66 @@
+#!/bin/bash
+
+exec 3>&1 # make stdout available as fd 3 for the result
+exec 1>&2 # redirect all output to stderr for logging
+
+set -e -o pipefail
+
+source $(dirname $0)/common.sh
+
+PAYLOAD="$(cat <&0)"
+
+validate_payload_source "$PAYLOAD"
+
+if jq -e '.source.proxy' <<< "$PAYLOAD" > /dev/null ; then
+  echo "TODO: 'put' support for proxy mode"
+  exit 2
+fi
+
+if jq -e '.params.subresources' <<< "$PAYLOAD" > /dev/null ; then
+  echo "TODO: 'put' support for subresources"
+  exit 2
+fi
+
+if jq -e '.params.bag_repo' <<< "$PAYLOAD" > /dev/null ; then
+  if jq -e '(.params | to_entries | length) > 1' <<< "$PAYLOAD" > /dev/null ; then
+    echo "Cannot specify both 'bag_repo' and other keys in top-level of params"
+    exit 2
+  fi
+  echo "---- Passing bag_repo straight through to git-resource, assuming already updated"
+  jq '.source |= .bag_repo | .params |= .bag_repo' <<< "$PAYLOAD" | $PROOT_CMD $(get_type_specific_proot_args 'git') $SLEEP_AFTER /opt/resource/out "$1" >&3
+  exit 0
+fi
+
+if ! jq -e '.params.path' <<< "$PAYLOAD" > /dev/null ; then
+  echo "Must provide either 'path' or 'bag_repo' keys in params"
+  exit 2
+fi
+
+if jq -e '.params.repository' <<< "$PAYLOAD" > /dev/null ; then
+  echo "Cannot provide 'repository' key at top-level (see 'path' instead)"
+  exit 2
+fi
+
+echo "---- Assembling new bag revision"
+
+pushd "$1/$(jq -r '.params.path' <<< "$PAYLOAD")/bag_repo"
+
+declare -a COPIED_FILES
+while read -r SUBRESOURCE_SOURCE_ENTRY ; do
+  export SUBRESOURCE_SOURCE_ENTRY
+  export SUBRESOURCE_NAME="$(jq -r '.key' <<< "$SUBRESOURCE_SOURCE_ENTRY")"
+
+  cp "$1/$SUBRESOURCE_NAME/version.json" "$SUBRESOURCE_NAME.json"
+  COPIED_FILES+=("$SUBRESOURCE_NAME.json")
+done < <(jq -c '(.source.subresources // {}) | to_entries | .[]' <<< "$PAYLOAD")
+
+git add ${COPIED_FILES[@]}
+
+echo "---- Committing bag_repo"
+(
+  . /opt/git-resource/common.sh
+  configure_git_global "$(jq -r '.source.bag_repo.git_config // []' <<< "$PAYLOAD")"
+  git commit -m "concourse-bag-resource revision"
+)
+
+jq '.source |= .bag_repo | .params.repository = .params.path+"/bag_repo" | del(.params.path)' <<< "$PAYLOAD" | $PROOT_CMD $(get_type_specific_proot_args 'git') $SLEEP_AFTER /opt/resource/out "$1" >&3

@@ -1,0 +1,104 @@
+resource_types:
+  - name: bag-resource
+    type: registry-image
+    source:
+      repository: risiclegds/concourse-bag-resource
+      tag: 0.0.120
+
+resources:
+  - name: foo-bag
+    type: bag-resource
+    icon: bag-personal-outline
+    source:
+      bag_repo:
+        uri: git@github.com:risicle/bag-resource-test-bag.git
+        branch: main
+        private_key: ((bag_repo_private_key))
+        git_config:
+          - name: user.email
+            value: bag.committer@example.com
+          - name: user.name
+            value: Bag Committer
+      subresources:
+        debian-bookworm:
+          type: registry-image
+          source:
+            repository: debian
+        notifications-api:
+          type: git
+          source:
+            uri: https://github.com/alphagov/notifications-api.git
+            branch: main
+        nginx:
+          type: registry-image
+          source:
+            repository: nginx
+
+  - name: debian-bookworm
+    type: bag-resource
+    icon: docker
+    source:
+      proxy:
+        type: registry-image
+        source:
+          repository: debian
+          tag_regex: bookworm-[0-9]+-slim
+
+  - name: notifications-api
+    type: bag-resource
+    icon: git
+    source:
+      proxy:
+        type: git
+        source:
+          uri: https://github.com/alphagov/notifications-api.git
+          branch: main
+          tag_filter: PAAS-STAGING-SUCCESS-*
+
+  - name: nginx
+    type: bag-resource
+    icon: docker
+    source:
+      proxy:
+        type: registry-image
+        source:
+          repository: nginx
+
+groups:
+  - name: main
+    jobs:
+      - consume-bag
+  - name: pack-bag
+    jobs:
+      - pack-bag
+
+jobs:
+  - name: pack-bag
+    plan:
+      - get: debian-bookworm
+        trigger: true
+        params:
+          version_only: true
+      - get: notifications-api
+        trigger: true
+        params:
+          version_only: true
+      - get: nginx
+        trigger: true
+        params:
+          version_only: true
+      - get: foo-bag
+
+      - put: foo-bag
+        params:
+          path: foo-bag
+
+  - name: consume-bag
+    plan:
+      - get: foo-bag
+        trigger: true
+        params:
+          subresources:
+            debian-bookworm: {}
+            notifications-api: {}
+            nginx: {}

@@ -1,0 +1,10 @@
+#!/bin/bash
+#
+# give all child processes a chance to exit before proot is torn down
+#
+
+set -e
+
+$@
+
+sleep 1

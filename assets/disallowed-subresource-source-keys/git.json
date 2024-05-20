@@ -1,0 +1,8 @@
+[
+  "commit_filter",
+  "disable_ci_skip",
+  "ignore_paths",
+  "paths",
+  "tag_filter",
+  "tag_regex"
+]

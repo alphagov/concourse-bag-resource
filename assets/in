@@ -1,0 +1,79 @@
+#!/bin/bash
+
+exec 3>&1 # make stdout available as fd 3 for the result
+exec 1>&2 # redirect all output to stderr for logging
+
+set -e -o pipefail
+
+source $(dirname $0)/common.sh
+
+PAYLOAD="$(cat <&0)"
+
+validate_payload_source "$PAYLOAD"
+
+DESTINATION_ROOT="$1"
+
+if jq -e '.source.proxy' <<< "$PAYLOAD" > /dev/null ; then
+  if jq -e '.params.subresources' <<< "$PAYLOAD" > /dev/null ; then
+    echo "Cannot use both subresources and proxy keys together in params"
+    exit 2
+  fi
+
+  if jq -e '.params.version_only' <<< "$PAYLOAD" > /dev/null ; then
+    if jq -e '.params.proxy' <<< "$PAYLOAD" > /dev/null ; then
+      echo "Cannot use both version_only and proxy keys together in params"
+      exit 2
+    fi
+
+    jq '.version' <<< "$PAYLOAD" > "$DESTINATION_ROOT/version.json"
+    jq '{version: .version, metadata: []}' <<< "$PAYLOAD" >&3
+  else
+    TYPE_SPECIFIC_ARGS="$(get_type_specific_proot_args $SUBRESOURCE_TYPE)"
+    jq '.source |= .proxy | .params |= (.proxy // {})' <<< "$PAYLOAD" | $PROOT_CMD $TYPE_SPECIFIC_ARGS -b "$DESTINATION_ROOT" $SLEEP_AFTER /opt/resource/in "$DESTINATION_ROOT" >&3
+  fi
+  # we're done
+  exit 0
+fi
+
+BAG_REPO_ROOT="$DESTINATION_ROOT/bag_repo"
+mkdir -p "$BAG_REPO_ROOT"
+echo "---- Performing get of bag_repo"
+jq '.source |= .bag_repo | .params |= (.bag_repo // {})' <<< "$PAYLOAD" | $PROOT_CMD -b '/opt/git-resource:/opt/resource' -b "$BAG_REPO_ROOT" $SLEEP_AFTER /opt/resource/in "$BAG_REPO_ROOT" >&3
+
+while read -r SUBRESOURCE_PARAMS_ENTRY ; do
+  if ! jq -e '.value' <<< "$SUBRESOURCE_PARAMS_ENTRY" ; then
+    # skip if entry is null or false
+    continue
+  fi
+
+  export SUBRESOURCE_PARAMS_ENTRY
+  export SUBRESOURCE_NAME="$(jq -r '.key' <<< "$SUBRESOURCE_PARAMS_ENTRY")"
+  echo "---- Performing get of subresource $SUBRESOURCE_NAME"
+
+  if ! jq -e '.source.subresources[env.SUBRESOURCE_NAME]' > /dev/null <<< "$PAYLOAD" ; then
+    echo "No entry in resource 'source' for subresource $SUBRESOURCE_NAME"
+    exit 2
+  fi
+  export SUBRESOURCE_CONFIG="$(jq -c '.source.subresources[env.SUBRESOURCE_NAME]' <<< "$PAYLOAD")"
+
+  SUBRESOURCE_TYPE="$(jq -r '.type' <<< "$SUBRESOURCE_CONFIG")"
+  validate_subresource_type "$SUBRESOURCE_TYPE"
+
+  SUBRESOURCE_DESTINATION_ROOT="$DESTINATION_ROOT/$SUBRESOURCE_NAME"
+  mkdir -p "$SUBRESOURCE_DESTINATION_ROOT"
+
+  SUBRESOURCE_VERSION_JSON="$BAG_REPO_ROOT/$SUBRESOURCE_NAME.json"
+  if ! [ -e "$SUBRESOURCE_VERSION_JSON" ] ; then
+    echo "$SUBRESOURCE_NAME.json not found in bag_repo"
+    exit 2
+  fi
+  SUBRESOURCE_PAYLOAD="$(jq '{
+    params: ((env.SUBRESOURCE_PARAMS_ENTRY | fromjson).value // {}),
+    source: (env.SUBRESOURCE_CONFIG | fromjson).source,
+    version: .,
+  }' < "$SUBRESOURCE_VERSION_JSON")"
+
+  TYPE_SPECIFIC_ARGS="$(get_type_specific_proot_args $SUBRESOURCE_TYPE)"
+
+  $PROOT_CMD -b "$SUBRESOURCE_DESTINATION_ROOT" $TYPE_SPECIFIC_ARGS $SLEEP_AFTER /opt/resource/in "$SUBRESOURCE_DESTINATION_ROOT" <<< "$SUBRESOURCE_PAYLOAD" > /dev/null
+done < <(jq -c '(.params.subresources // {}) | to_entries | .[]' <<< "$PAYLOAD")
