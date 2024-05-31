@@ -1,0 +1,95 @@
+resource_types:
+- name: bag-resource-under-test
+  type: registry-image
+  source:
+    "<<": ((bag-resource-under-test-image-source))
+    tag: ((bag-resource-under-test-image-tag))
+
+resources:
+- name: concourse-bag-resource-git
+  type: git
+  icon: git
+  source: ((concourse-bag-resource-git-source))
+- name: bag-resource-under-test-image
+  type: registry-image
+  icon: docker
+  source: ((bag-resource-under-test-image-source))
+
+- name: concourse-bag-resource-git-proxy
+  type: bag-resource-under-test
+  icon: git
+  source:
+    proxy:
+      type: git
+      source:
+        "<<": ((concourse-bag-resource-git-source))
+        version: ((concourse-bag-resource-git-proxy-version))
+- name: bag-resource-under-test-image-proxy
+  type: bag-resource-under-test
+  icon: docker
+  source:
+    proxy:
+      type: registry-image
+      source:
+        "<<": ((bag-resource-under-test-image-source))
+        version: ((bag-resource-under-test-image-proxy-version))
+
+jobs:
+- name: set-pipeline
+  serial: true
+  plan:
+  - get: concourse-bag-resource-git
+    trigger: true
+  - set_pipeline: self
+    file: concourse-bag-resource-git/ci/build.yml
+    vars:
+      bag-resource-under-test-image-source: ((bag-resource-under-test-image-source))
+      bag-resource-under-test-image-tag: DOES_NOT_EXIST
+      bag-resource-under-test-image-proxy-version:
+        Digest: DOES_NOT_EXIST
+      concourse-bag-resource-git-source: ((concourse-bag-resource-git-source))
+      concourse-bag-resource-git-proxy-version:
+        ref: DOES_NOT_EXIST
+      oci-build-task-source: ((oci-build-task-source))
+    var_files:
+    - concourse-bag-resource-git/ci/build.fixed.vars.yml
+
+- name: build-image
+  serial: true
+  plan:
+  - get: concourse-bag-resource-git
+    trigger: true
+    passed: [set-pipeline]
+  - task: build-image
+    privileged: true
+    config:
+      platform: linux
+      image_resource:
+        type: registry-image
+        source: ((oci-build-task-source))
+      params:
+        CONTEXT: concourse-bag-resource-git/
+      run:
+        path: build
+  - put: bag-resource-under-test-image
+    params:
+      image: image/image.tar
+  - load_var: new-image-hash
+    format: trim
+    file: image/digest
+  - load_var: current-git-ref
+    format: trim
+    file: concourse-bag-resource-git/.git/ref
+  - set_pipeline: self
+    file: concourse-bag-resource-git/ci/build.yml
+    vars:
+      bag-resource-under-test-image-source: ((bag-resource-under-test-image-source))
+      bag-resource-under-test-image-tag: ((new-image-hash))
+      bag-resource-under-test-image-proxy-version:
+        Digest: ((new-image-hash))
+      concourse-bag-resource-git-source: ((concourse-bag-resource-git-source))
+      concourse-bag-resource-git-proxy-version:
+        ref: ((current-git-ref))
+      oci-build-task-source: ((oci-build-task-source))
+    var_files:
+    - concourse-bag-resource-git/ci/build.fixed.vars.yml

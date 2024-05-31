@@ -1,0 +1,4 @@
+# variables we want bound to the source tree
+oci-build-task-source:
+  repository: concourse/oci-build-task
+  tag: 0.1.11
