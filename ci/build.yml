@@ -86,7 +86,7 @@ jobs:
       bag-resource-under-test-image-source: ((bag-resource-under-test-image-source))
       bag-resource-under-test-image-tag: ((new-image-hash))
       bag-resource-under-test-image-proxy-version:
-        Digest: ((new-image-hash))
+        digest: ((new-image-hash))
       concourse-bag-resource-git-source: ((concourse-bag-resource-git-source))
       concourse-bag-resource-git-proxy-version:
         ref: ((current-git-ref))
