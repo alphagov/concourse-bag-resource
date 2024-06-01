@@ -57,8 +57,6 @@ while read -r SUBRESOURCE_PARAMS_ENTRY ; do
   export SUBRESOURCE_CONFIG="$(jq -c '.source.subresources[env.SUBRESOURCE_NAME]' <<< "$PAYLOAD")"
 
   SUBRESOURCE_TYPE="$(jq -r '.type' <<< "$SUBRESOURCE_CONFIG")"
-  validate_subresource_type "$SUBRESOURCE_TYPE"
-
   SUBRESOURCE_DESTINATION_ROOT="$DESTINATION_ROOT/$SUBRESOURCE_NAME"
   mkdir -p "$SUBRESOURCE_DESTINATION_ROOT"
 
