@@ -14,8 +14,11 @@ validate_payload_source "$PAYLOAD"
 CONTENT_ROOT="$1"
 
 if jq -e '.source.proxy' <<< "$PAYLOAD" > /dev/null ; then
-  echo "TODO: 'put' support for proxy mode"
-  exit 2
+  SUBRESOURCE_TYPE="$(jq -r '.source.proxy.type' <<< "$PAYLOAD")"
+  TYPE_SPECIFIC_ARGS="$(get_type_specific_proot_args $SUBRESOURCE_TYPE)"
+  jq '.source |= .proxy | .params |= (.proxy // {})' <<< "$PAYLOAD" | $PROOT_CMD $TYPE_SPECIFIC_ARGS -b "$CONTENT_ROOT" $SLEEP_AFTER /opt/resource/out "$CONTENT_ROOT" >&3
+  # we're done
+  exit 0
 fi
 
 if jq -e '.params.subresources' <<< "$PAYLOAD" > /dev/null ; then
