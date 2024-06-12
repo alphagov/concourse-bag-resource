@@ -11,9 +11,14 @@ PAYLOAD="$(cat <&0)"
 
 validate_payload_source "$PAYLOAD"
 
+CONTENT_ROOT="$1"
+
 if jq -e '.source.proxy' <<< "$PAYLOAD" > /dev/null ; then
-  echo "TODO: 'put' support for proxy mode"
-  exit 2
+  SUBRESOURCE_TYPE="$(jq -r '.source.proxy.type' <<< "$PAYLOAD")"
+  TYPE_SPECIFIC_ARGS="$(get_type_specific_proot_args $SUBRESOURCE_TYPE)"
+  jq '.source |= .proxy | .params |= (.proxy // {})' <<< "$PAYLOAD" | $PROOT_CMD $TYPE_SPECIFIC_ARGS -b "$CONTENT_ROOT" $SLEEP_AFTER /opt/resource/out "$CONTENT_ROOT" >&3
+  # we're done
+  exit 0
 fi
 
 if jq -e '.params.subresources' <<< "$PAYLOAD" > /dev/null ; then
@@ -27,7 +32,7 @@ if jq -e '.params.bag_repo' <<< "$PAYLOAD" > /dev/null ; then
     exit 2
   fi
   echo "---- Passing bag_repo straight through to git-resource, assuming already updated"
-  jq '.source |= .bag_repo | .params |= .bag_repo' <<< "$PAYLOAD" | $PROOT_CMD $(get_type_specific_proot_args 'git') $SLEEP_AFTER /opt/resource/out "$1" >&3
+  jq '.source |= .bag_repo | .params |= .bag_repo' <<< "$PAYLOAD" | $PROOT_CMD $(get_type_specific_proot_args 'git') $SLEEP_AFTER /opt/resource/out "$CONTENT_ROOT" >&3
   exit 0
 fi
 
@@ -43,14 +48,14 @@ fi
 
 echo "---- Assembling new bag revision"
 
-pushd "$1/$(jq -r '.params.path' <<< "$PAYLOAD")/bag_repo"
+pushd "$CONTENT_ROOT/$(jq -r '.params.path' <<< "$PAYLOAD")/bag_repo"
 
 declare -a COPIED_FILES
 while read -r SUBRESOURCE_SOURCE_ENTRY ; do
   export SUBRESOURCE_SOURCE_ENTRY
   export SUBRESOURCE_NAME="$(jq -r '.key' <<< "$SUBRESOURCE_SOURCE_ENTRY")"
 
-  cp "$1/$SUBRESOURCE_NAME/version.json" "$SUBRESOURCE_NAME.json"
+  cp "$CONTENT_ROOT/$SUBRESOURCE_NAME/version.json" "$SUBRESOURCE_NAME.json"
   COPIED_FILES+=("$SUBRESOURCE_NAME.json")
 done < <(jq -c '(.source.subresources // {}) | to_entries | .[]' <<< "$PAYLOAD")
 
@@ -63,4 +68,4 @@ echo "---- Committing bag_repo"
   git commit -m "concourse-bag-resource revision"
 )
 
-jq '.source |= .bag_repo | .params.repository = .params.path+"/bag_repo" | del(.params.path)' <<< "$PAYLOAD" | $PROOT_CMD $(get_type_specific_proot_args 'git') $SLEEP_AFTER /opt/resource/out "$1" >&3
+jq '.source |= .bag_repo | .params.repository = .params.path+"/bag_repo" | del(.params.path)' <<< "$PAYLOAD" | $PROOT_CMD $(get_type_specific_proot_args 'git') $SLEEP_AFTER /opt/resource/out "$CONTENT_ROOT" >&3

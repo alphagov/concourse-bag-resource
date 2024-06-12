@@ -3,7 +3,7 @@ resource_types:
     type: registry-image
     source:
       repository: risiclegds/concourse-bag-resource
-      tag: 0.0.120
+      tag: 0.0.122
 
 resources:
   - name: foo-bag
