@@ -28,6 +28,7 @@ if jq -e '.source.proxy' <<< "$PAYLOAD" > /dev/null ; then
     jq '.version' <<< "$PAYLOAD" > "$DESTINATION_ROOT/version.json"
     jq '{version: .version, metadata: []}' <<< "$PAYLOAD" >&3
   else
+    SUBRESOURCE_TYPE="$(jq -r '.source.proxy.type' <<< "$PAYLOAD")"
     TYPE_SPECIFIC_ARGS="$(get_type_specific_proot_args $SUBRESOURCE_TYPE)"
     jq '.source |= .proxy | .params |= (.proxy // {})' <<< "$PAYLOAD" | $PROOT_CMD $TYPE_SPECIFIC_ARGS -b "$DESTINATION_ROOT" $SLEEP_AFTER /opt/resource/in "$DESTINATION_ROOT" >&3
   fi
@@ -57,8 +58,6 @@ while read -r SUBRESOURCE_PARAMS_ENTRY ; do
   export SUBRESOURCE_CONFIG="$(jq -c '.source.subresources[env.SUBRESOURCE_NAME]' <<< "$PAYLOAD")"
 
   SUBRESOURCE_TYPE="$(jq -r '.type' <<< "$SUBRESOURCE_CONFIG")"
-  validate_subresource_type "$SUBRESOURCE_TYPE"
-
   SUBRESOURCE_DESTINATION_ROOT="$DESTINATION_ROOT/$SUBRESOURCE_NAME"
   mkdir -p "$SUBRESOURCE_DESTINATION_ROOT"
 
