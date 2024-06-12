@@ -30,7 +30,7 @@ if jq -e '.source.proxy' <<< "$PAYLOAD" > /dev/null ; then
   else
     SUBRESOURCE_TYPE="$(jq -r '.source.proxy.type' <<< "$PAYLOAD")"
     TYPE_SPECIFIC_ARGS="$(get_type_specific_proot_args $SUBRESOURCE_TYPE)"
-    jq '.source |= .proxy | .params |= (.proxy // {})' <<< "$PAYLOAD" | $PROOT_CMD $TYPE_SPECIFIC_ARGS -b "$DESTINATION_ROOT" $SLEEP_AFTER /opt/resource/in "$DESTINATION_ROOT" >&3
+    jq '.source |= .proxy.source | .params |= (.proxy // {})' <<< "$PAYLOAD" | $PROOT_CMD $TYPE_SPECIFIC_ARGS -b "$DESTINATION_ROOT" $SLEEP_AFTER /opt/resource/in "$DESTINATION_ROOT" >&3
   fi
   # we're done
   exit 0
