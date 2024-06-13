@@ -62,7 +62,7 @@ while read -r SUBRESOURCE_PARAMS_ENTRY ; do
     exit 2
   fi
   SUBRESOURCE_PAYLOAD="$(jq '{
-    params: ((env.SUBRESOURCE_PARAMS_ENTRY | fromjson).value // {}),
+    params: ((env.SUBRESOURCE_PARAMS_ENTRY | fromjson).value.params // {}),
     source: (env.SUBRESOURCE_CONFIG | fromjson).source,
     version: .,
   }' < "$SUBRESOURCE_VERSION_JSON")"
