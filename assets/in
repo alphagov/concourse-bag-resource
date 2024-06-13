@@ -36,8 +36,17 @@ if jq -e '.source.proxy' <<< "$PAYLOAD" > /dev/null ; then
   exit 0
 fi
 
-BAG_REPO_ROOT="$DESTINATION_ROOT/bag_repo"
+if jq -e '[ (.params.subresources // {}) | to_entries | .[] | select(.value.flatten) ] | length > 0' <<< "$PAYLOAD" > /dev/null ; then
+  if jq -e '[ (.params.subresources // {}) | to_entries | .[] | select(.value) ] | length > 1' <<< "$PAYLOAD" > /dev/null ; then
+    echo "Cannot flatten output when multiple subresources are requested"
+    exit 2
+  fi
+  BAG_REPO_ROOT="$DESTINATION_ROOT/.bag_repo"
+else
+  BAG_REPO_ROOT="$DESTINATION_ROOT/bag_repo"
+fi
 mkdir -p "$BAG_REPO_ROOT"
+
 echo "---- Performing get of bag_repo"
 jq '.source |= .bag_repo | .params |= (.bag_repo // {})' <<< "$PAYLOAD" | $PROOT_CMD -b '/opt/git-resource:/opt/resource' -b "$BAG_REPO_ROOT" $SLEEP_AFTER /opt/resource/in "$BAG_REPO_ROOT" >&3
 
@@ -53,7 +62,11 @@ while read -r SUBRESOURCE_PARAMS_ENTRY ; do
   export SUBRESOURCE_CONFIG="$(jq -c '.source.subresources[env.SUBRESOURCE_NAME]' <<< "$PAYLOAD")"
 
   SUBRESOURCE_TYPE="$(jq -r '.type' <<< "$SUBRESOURCE_CONFIG")"
-  SUBRESOURCE_DESTINATION_ROOT="$DESTINATION_ROOT/$SUBRESOURCE_NAME"
+  if jq -e '.value.flatten' <<< "$SUBRESOURCE_PARAMS_ENTRY" > /dev/null ; then
+    SUBRESOURCE_DESTINATION_ROOT="$DESTINATION_ROOT"
+  else
+    SUBRESOURCE_DESTINATION_ROOT="$DESTINATION_ROOT/$SUBRESOURCE_NAME"
+  fi
   mkdir -p "$SUBRESOURCE_DESTINATION_ROOT"
 
   SUBRESOURCE_VERSION_JSON="$BAG_REPO_ROOT/$SUBRESOURCE_NAME.json"
