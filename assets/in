@@ -42,11 +42,6 @@ echo "---- Performing get of bag_repo"
 jq '.source |= .bag_repo | .params |= (.bag_repo // {})' <<< "$PAYLOAD" | $PROOT_CMD -b '/opt/git-resource:/opt/resource' -b "$BAG_REPO_ROOT" $SLEEP_AFTER /opt/resource/in "$BAG_REPO_ROOT" >&3
 
 while read -r SUBRESOURCE_PARAMS_ENTRY ; do
-  if ! jq -e '.value' <<< "$SUBRESOURCE_PARAMS_ENTRY" ; then
-    # skip if entry is null or false
-    continue
-  fi
-
   export SUBRESOURCE_PARAMS_ENTRY
   export SUBRESOURCE_NAME="$(jq -r '.key' <<< "$SUBRESOURCE_PARAMS_ENTRY")"
   echo "---- Performing get of subresource $SUBRESOURCE_NAME"
@@ -75,4 +70,4 @@ while read -r SUBRESOURCE_PARAMS_ENTRY ; do
   TYPE_SPECIFIC_ARGS="$(get_type_specific_proot_args $SUBRESOURCE_TYPE)"
 
   $PROOT_CMD -b "$SUBRESOURCE_DESTINATION_ROOT" $TYPE_SPECIFIC_ARGS $SLEEP_AFTER /opt/resource/in "$SUBRESOURCE_DESTINATION_ROOT" <<< "$SUBRESOURCE_PAYLOAD" > /dev/null
-done < <(jq -c '(.params.subresources // {}) | to_entries | .[]' <<< "$PAYLOAD")
+done < <(jq -c '(.params.subresources // {}) | to_entries | .[] | select(.value)' <<< "$PAYLOAD")
