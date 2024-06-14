@@ -26,9 +26,9 @@ if jq -e '.params.subresources' <<< "$PAYLOAD" > /dev/null ; then
   exit 2
 fi
 
-if jq -e '.params.bag_repo' <<< "$PAYLOAD" > /dev/null ; then
+if jq -e '.params.bag_repo.repository' <<< "$PAYLOAD" > /dev/null ; then
   if jq -e '(.params | to_entries | length) > 1' <<< "$PAYLOAD" > /dev/null ; then
-    echo "Cannot specify both 'bag_repo' and other keys in top-level of params"
+    echo "Cannot specify 'bag_repo.repository' with other keys in top-level of params"
     exit 2
   fi
   echo "---- Passing bag_repo straight through to git-resource, assuming already updated"
@@ -37,7 +37,7 @@ if jq -e '.params.bag_repo' <<< "$PAYLOAD" > /dev/null ; then
 fi
 
 if ! jq -e '.params.path' <<< "$PAYLOAD" > /dev/null ; then
-  echo "Must provide either 'path' or 'bag_repo' keys in params"
+  echo "Must provide either 'path' or 'bag_repo.repository' keys in params"
   exit 2
 fi
 
@@ -68,4 +68,7 @@ echo "---- Committing bag_repo"
   git commit -m "concourse-bag-resource revision"
 )
 
-jq '.source |= .bag_repo | .params.repository = .params.path+"/bag_repo" | del(.params.path)' <<< "$PAYLOAD" | $PROOT_CMD $(get_type_specific_proot_args 'git') $SLEEP_AFTER /opt/resource/out "$CONTENT_ROOT" >&3
+popd
+
+echo "---- Performing put of bag_repo"
+jq '.source |= .bag_repo | .params.bag_repo.repository = .params.path+"/bag_repo" | .params |= .bag_repo' <<< "$PAYLOAD" | $PROOT_CMD $(get_type_specific_proot_args 'git') $SLEEP_AFTER /opt/resource/out "$CONTENT_ROOT" >&3
