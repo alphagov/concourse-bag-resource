@@ -1,4 +1,6 @@
-ARG REGISTRY_IMAGE_RESOURCE=concourse/registry-image-resource:1.9.0
+# default is a pre-1.10.0 `dev` image as of 20240628, needed for inclusion
+# of https://github.com/concourse/registry-image-resource/pull/354
+ARG REGISTRY_IMAGE_RESOURCE=concourse/registry-image-resource@sha256:a17a4ec2bb60e1933bd51d7c07b552bc2851dea2e3c042db38134c92f5a98ed6
 ARG GIT_RESOURCE=concourse/git-resource:1.16.0
 FROM $REGISTRY_IMAGE_RESOURCE as registry-image-resource
 FROM $GIT_RESOURCE as base-resource
