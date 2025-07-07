@@ -59,7 +59,31 @@ while read -r SUBRESOURCE_SOURCE_ENTRY ; do
   COPIED_FILES+=("$SUBRESOURCE_NAME.json")
 done < <(jq -c '(.source.subresources // {}) | to_entries | .[]' <<< "$PAYLOAD")
 
+# Remove JSON files that are not part of the current subresources
+declare -a FILES_TO_REMOVE
+for existing_file in *.json ; do
+  if [[ -f "$existing_file" ]] ; then
+    # Check if this file is in our COPIED_FILES array
+    found=false
+    for copied_file in "${COPIED_FILES[@]}" ; do
+      if [[ "$existing_file" == "$copied_file" ]] ; then
+        found=true
+        break
+      fi
+    done
+    if [[ "$found" == false ]] ; then
+      echo "Removing orphaned file: $existing_file"
+      rm "$existing_file"
+      FILES_TO_REMOVE+=("$existing_file")
+    fi
+  fi
+done
+
 git add ${COPIED_FILES[@]}
+# Add removed files to the commit (git add automatically handles deleted files with -A)
+if [[ ${#FILES_TO_REMOVE[@]} -gt 0 ]] ; then
+  git add -A .
+fi
 
 echo "---- Committing bag_repo"
 (
