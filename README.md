@@ -126,6 +126,12 @@ remote repository, operating similarly to how `put`ting to a git-resource works
   for each subresource's `version.json` under a directory with the same name as the subresource.
   These will then be assembled, committed and pushed to the remote `bag_repo`.
 
+- `purge_unknown`: boolean - if `false`, files in the bag repository that are not part of the
+  current subresources will be left untouched. If `true` (the default), any non-dotfiles in
+  the bag repository that don't correspond to current subresources will be removed from the
+  repository and included in the commit. This helps keep the bag repository clean when
+  subresources are removed from the configuration. Default `true`.
+
 - `bag_repo`: parameters passed to the `params` of the underlying git-resource when pushing to
   the remote bag repository.
   - _(arbitrary parameters)_
