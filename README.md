@@ -77,9 +77,9 @@ In "proxy" mode this is handled by the proxied resource.
 ### `in` ("`get`")
 
 In "bag" mode this will fetch the appropriate revision of the `bag_repo` and then populate
-the output directory with it (under the `bag_repo/` or `.bag_repo/` directories) and then,
-based on the versions recorded in bag repository checkout, fetch any requested subresources
-to the output directory.
+the output directory with it (under the `bag_repo/` directory). Then, based on the versions
+recorded in bag repository checkout, it will fetch any requested subresources to the output
+directory.
 
 #### Parameters ("bag" mode)
 
@@ -91,8 +91,8 @@ to the output directory.
       created so that `registry-image` subresources could be fetched in `rootfs` format and
       fed directly to concourse as a [task-step image](https://concourse-ci.org/task-step.html#schema.task.image),
       concourse being extremely fussy about being given an output name here, not allowing
-      sub-directories to be specified. The bag repository is placed in `.bag_repo/` if
-      flattening. Default `false`.
+      sub-directories to be specified. The bag repository is placed in an inaccessible temporary
+      directory if flattening. Default `false`.
     - `params`: passed through to underlying resource. Default `{}`.
 
 > [!TIP]
