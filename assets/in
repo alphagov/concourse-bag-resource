@@ -41,7 +41,7 @@ if jq -e '[ (.params.subresources // {}) | to_entries | .[] | select(.value.flat
     echo "Cannot flatten output when multiple subresources are requested"
     exit 2
   fi
-  BAG_REPO_ROOT="$DESTINATION_ROOT/.bag_repo"
+  BAG_REPO_ROOT="$(mktemp -d)/bag_repo"
 else
   BAG_REPO_ROOT="$DESTINATION_ROOT/bag_repo"
 fi
