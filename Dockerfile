@@ -7,7 +7,9 @@ FROM $GIT_RESOURCE as base-resource
 FROM base-resource as build-resource
 USER root
 
-RUN apt update && apt install -y --no-install-recommends build-essential
+RUN apt update && \
+    apt install -y --no-install-recommends build-essential
+
 COPY ./assets/forcedumpable.c /opt/resource/
 WORKDIR /opt/resource
 RUN gcc ./forcedumpable.c -o ./forcedumpable.so -shared -ldl
@@ -15,7 +17,10 @@ RUN gcc ./forcedumpable.c -o ./forcedumpable.so -shared -ldl
 FROM base-resource as final-resource
 USER root
 
-RUN apt update && apt install -y --no-install-recommends proot
+RUN apt update && \
+    apt install -y --no-install-recommends proot && \
+    apt -y clean && \
+    rm -rf /var/lib/apt/lists/* /tmp/*
 
 RUN mkdir /subresources
 COPY --from=registry-image-resource / /subresources/registry-image
