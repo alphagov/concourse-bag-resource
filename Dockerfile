@@ -1,13 +1,14 @@
-# default is a pre-1.10.0 `dev` image as of 20240628, needed for inclusion
-# of https://github.com/concourse/registry-image-resource/pull/354
-ARG REGISTRY_IMAGE_RESOURCE=concourse/registry-image-resource@sha256:a17a4ec2bb60e1933bd51d7c07b552bc2851dea2e3c042db38134c92f5a98ed6
+ARG REGISTRY_IMAGE_RESOURCE=concourse/registry-image-resource:1.19.0
 ARG GIT_RESOURCE=concourse/git-resource:1.16.0
 FROM $REGISTRY_IMAGE_RESOURCE as registry-image-resource
 FROM $GIT_RESOURCE as base-resource
 FROM base-resource as build-resource
 USER root
 
-RUN apt update && apt install -y --no-install-recommends build-essential
+RUN apt update && \
+    apt install -y --no-install-recommends build-essential && \
+    apt install -y --no-install-recommends --only-upgrade ca-certificates
+
 COPY ./assets/forcedumpable.c /opt/resource/
 WORKDIR /opt/resource
 RUN gcc ./forcedumpable.c -o ./forcedumpable.so -shared -ldl
@@ -15,7 +16,11 @@ RUN gcc ./forcedumpable.c -o ./forcedumpable.so -shared -ldl
 FROM base-resource as final-resource
 USER root
 
-RUN apt update && apt install -y --no-install-recommends proot
+RUN apt update && \
+    apt install -y --no-install-recommends proot && \
+    apt install -y --no-install-recommends --only-upgrade ca-certificates && \
+    apt -y clean && \
+    rm -rf /var/lib/apt/lists/* /tmp/*
 
 RUN mkdir /subresources
 COPY --from=registry-image-resource / /subresources/registry-image
