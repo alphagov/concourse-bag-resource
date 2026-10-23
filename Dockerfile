@@ -8,7 +8,8 @@ FROM base-resource as build-resource
 USER root
 
 RUN apt update && \
-    apt install -y --no-install-recommends build-essential
+    apt install -y --no-install-recommends build-essential && \
+    apt install -y --no-install-recommends --only-upgrade ca-certificates
 
 COPY ./assets/forcedumpable.c /opt/resource/
 WORKDIR /opt/resource
@@ -19,6 +20,7 @@ USER root
 
 RUN apt update && \
     apt install -y --no-install-recommends proot && \
+    apt install -y --no-install-recommends --only-upgrade ca-certificates && \
     apt -y clean && \
     rm -rf /var/lib/apt/lists/* /tmp/*
 
