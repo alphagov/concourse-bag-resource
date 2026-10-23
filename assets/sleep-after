@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # give all child processes a chance to exit before proot is torn down
 #
